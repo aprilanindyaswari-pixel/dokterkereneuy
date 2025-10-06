@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CBT Practice – Multi User (Cloud + Lokal)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22c55e; --border:#1f2937 }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial;background:linear-gradient(180deg,#0b1025,#0f172a);color:var(--text)}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);background-color:rgba(2,6,23,.6);border-bottom:1px solid var(--border)}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    h1{font-size:clamp(22px,2.8vw,32px);margin:6px 0 2px}
+    .sub{color:var(--muted);font-size:14px}
+    .grid{display:grid;gap:16px}
+    @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
+    .card{background:linear-gradient(180deg,#0f172a,#0b1025);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 0 0 1px rgba(255,255,255,.02) inset}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .sp{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .btn{border:1px solid var(--border);background:#0b1229;color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600}
+    .btn:hover{border-color:#334155}
+    .btn.acc{background:#062814;border-color:#134e4a}
+    .btn.warn{background:#2a1d05;border-color:#a16207}
+    .btn.ghost{background:transparent}
+    .tag{font-size:12px;padding:4px 8px;border-radius:999px;background:#0b1229;border:1px solid var(--border);color:var(--muted)}
+    .bar{width:100%;height:10px;background:#0b1229;border-radius:999px;border:1px solid var(--border);overflow:hidden}
+    .bar>i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#84cc16);width:0%}
+    .muted{color:var(--muted);font-size:13px}
+    .title{font-family:'Poppins','Inter',system-ui,sans-serif;font-weight:700;font-size:16px}
+    .hr{height:1px;background:linear-gradient(90deg,transparent,#1f2937,transparent);margin:12px 0}
+    .pill{border:1px solid var(--border);background:#0b1229;padding:8px 12px;border-radius:999px}
+    input[type="text"],input[type="password"],input[type="number"],select{background:#0b1229;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+    .q{padding:12px;border:1px solid var(--border);border-radius:12px;background:#0b1229}
+    .opt{border:1px solid var(--border);border-radius:10px;padding:10px;margin:8px 0;cursor:pointer}
+    .opt.correct{border-color:#14532d;background:#052e1a}
+    .opt.wrong{border-color:#7f1d1d;background:#2a0f0f}
+    .opt.selected{outline:2px solid #3b82f6}
+    .kbd{border:1px solid var(--border);background:#0b1229;padding:2px 6px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas}
+    .footer{color:#64748b;font-size:12px;padding:24px 0;text-align:center}
+    .link{color:#93c5fd}
+  </style>
+
+  <!-- Supabase JS -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    // ==== KONFIGURASI SUPABASE (GANTI DENGAN MILIKMU) ====
+    // Dapatkan di: Supabase → Settings → API
+    const PROJECT_URL = "https://YOUR-PROJECT-ref.supabase.co"; // ← ganti
+    const PUBLIC_ANON = "YOUR_PUBLIC_ANON_KEY";                  // ← ganti
+
+    const supabase = window.supabase.createClient(PROJECT_URL, PUBLIC_ANON);
+    let SUPA_USER = null;
+    async function getUser(){ const { data:{ user } } = await supabase.auth.getUser(); return user }
+    async function refreshSupaUser(){ SUPA_USER = await getUser(); }
+  </script>
+</head>
+<body>
+  <header class="wrap">
+    <div class="row">
+      <label class="pill">Nama:
+        <input type="text" id="nm" placeholder="mis. Budi" style="margin-left:6px;width:140px"
+               oninput="state.settings.name=this.value; saveState();">
+      </label>
+
+      <label class="pill">Gaya:
+        <select onchange="state.settings.tone=this.value; saveState(); render()" style="margin-left:6px">
+          <option value="affirmation">Afirmasi</option>
+          <option value="roast">Kata pedas</option>
+          <option value="both">Campur</option>
+        </select>
+      </label>
+
+      <label class="pill">Tema:
+        <select onchange="state.settings.theme=this.value; saveState(); applyTheme(this.value)" style="margin-left:6px">
+          <option value="dark">Gelap</option>
+          <option value="forest">Forest</option>
+          <option value="pastel">Pastel</option>
+        </select>
+      </label>
+
+      <label class="pill">Emoji:
+        <select onchange="state.settings.emoji=this.value; saveState(); render()" style="margin-left:6px">
+          <option value="off">Off</option>
+          <option value="lite" selected>Lite</option>
+          <option value="extra">Extra</option>
+        </select>
+      </label>
+
+      <button class="btn" onclick="exportState()">Export</button>
+      <label class="btn ghost" title="Import JSON progress">
+        Import <input type="file" accept="application/json" hidden onchange="importState(event)">
+      </label>
+    </div>
+
+    <!-- Baris login/logout supabase -->
+    <div id="authRow" class="row" style="padding-top:8px"></div>
+  </header>
+
+  <main class="wrap" id="app"></main>
+  <div class="footer">Single‑file. Data lokal tersimpan di <span class="kbd">localStorage</span>. Pengaya cloud via Supabase (isi <span class="kbd">PROJECT_URL<\/span> & <span class="kbd">PUBLIC_ANON<\/span>).</div>
+
+<script>
+// ===================== FALLBACK DATA (jika DB kosong) =====================
+const DATA_LOCAL = {
+  materials: [
+    { id:'ra', title:'Rheumatoid Arthritis', reading:`<b>Definisi:</b> Autoimun sinovium → erosif. <b>Poin:</b> RF/anti‑CCP, pannus, T2T.`,
+      questions:[
+        { q:'Antibodi paling spesifik untuk RA adalah…', options:['RF','ANA','Anti‑CCP/ACPA','Anti‑dsDNA'], answer:2, explanation:'Anti‑CCP/ACPA spesifik untuk RA.' },
+        { q:'Manifestasi ekstraartikular paling sering?', options:['Perikarditis','Keratokonjunktivitis sicca','Nodul reumatoid','Vaskulitis'], answer:2, explanation:'Nodul reumatoid sering pada RA seropositif.' }
+      ]},
+    { id:'tb', title:'Tuberkulosis', reading:`<b>Definisi:</b> M. tuberculosis. <b>Poin:</b> DOTS, OAT lini‑1, TPT.`,
+      questions:[
+        { q:'Yang <b>bukan</b> komponen DOTS…', options:['Komitmen politik','Diagnosis mikroskopis','Terapi OAT terawasi','Antibiotik spektrum luas sembarang'], answer:3, explanation:'Spektrum luas sembarang bukan bagian DOTS.' },
+        { q:'Obat lini‑1 TB yang paling hepatotoksik?', options:['INH','RIF','PZA','EMB'], answer:2, explanation:'PZA paling sering meningkatkan enzim hati bermakna.' }
+      ]}
+  ]
+};
+
+// ===================== LOCAL STORAGE =====================
+const KEY_BASE = 'cbt_multi_v2';
+function defaultState(){
+  return { read:{}, stats:{}, tryouts:[], settings:{ name:'', tone:'affirmation', theme:'dark', emoji:'lite', group:'' } }
+}
+function loadState(){
+  const d = localStorage.getItem(KEY_BASE);
+  const base = defaultState();
+  if(!d) return base;
+  try {
+    const s = JSON.parse(d);
+    if(!s.settings) s.settings = base.settings;
+    return s;
+  } catch(e){ return base; }
+}
+function saveState(){ localStorage.setItem(KEY_BASE, JSON.stringify(state)) }
+let state = loadState();
+
+// ===================== THEME & MOTIVATION =====================
+function applyTheme(theme){
+  const r=document.documentElement;
+  const T={
+    dark:{bg:'#0f172a',card:'#111827',text:'#e5e7eb',muted:'#94a3b8',accent:'#22c55e',border:'#1f2937'},
+    forest:{bg:'#0b1f17',card:'#0f2b23',text:'#e7f5ee',muted:'#9ad1bf',accent:'#34d399',border:'#164e3f'},
+    pastel:{bg:'#f5f3ff',card:'#fafafa',text:'#1f2937',muted:'#6b7280',accent:'#8b5cf6',border:'#e5e7eb'}
+  }[theme||'dark'];
+  Object.entries(T).forEach(([k,v])=>r.style.setProperty(`--${k}`,v));
+}
+function emojiDecor(p,mode){ if(mode==='off')return ''; if(mode==='lite')return p<20?' 🔰':p<40?' 📚':p<60?' ⛽':p<80?' 🚀':' 🏆'; return p<20?' 🐣💡':p<40?' 📖✨':p<60?' ⚙️🔥':p<80?' 🚀💨':' 🏆🌟'}
+function motivation(p,name,tone){
+  const who=(name&&name.trim())?name.trim():'Kamu';
+  const b=p<20?0:p<40?1:p<60?2:p<80?3:4;
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const A=[[`${who}, start kecil itu tetap start. 10 menit hari ini > 0 menit kemarin!`,`Awal yang bagus, ${who}. Target kecil + konsisten = dampak besar.`],[`${who}, 20–39% itu fondasi. Sedikit lagi masuk zona nyaman belajar.`,`Nice! Setengah jalan di depan mata—lanjut pelan tapi pasti, ${who}.`],[`Udah 40–59%. Momentummu bagus, ${who}! Jaga ritme.`,`Tanjakan hampir selesai, ${who}. Napas, lanjut lagi.`],[`60–79%? Mantap! Finishing is a skill—tuntaskan!`,`Nyaris puncak, ${who}. Satu sesi lagi tembus 80%+.`],[`>75% club! Keren, ${who}! Konsistensimu jempolan.`,`Elite mode. Review salahmu, kunci nilai tinggi, ${who}.`]];
+  const R=[[`${who}, 0–19%? Baru pemanasan. Jangan cuma ngintip—gerak sekarang.`,`Kalau cuma niat, nilainya nggak ikut naik, ${who}. Klik satu soal.`],[`20–39% itu angka, bukan takdir. Tambah 1 sesi hari ini.`,`Lumayan, tapi biasa aja. Mau tetap biasa? Gas lagi, ${who}.`],[`40–59%: setengah matang. Mau setengah terus?`,`Udah setengah jalan, masa balik kanan, ${who}?`],[`60–79%: hampir jadi. Jangan mager di pintu finish, ${who}.`,`Tinggal sedikit. Malu sama progress bar kalau berhenti sekarang.`],[`>75%: serius. Tapi tanpa review, gampang turun di tryout.`,`Bagus! Sekarang bedah salahmu, ${who}.`]];
+  const t=tone==='both'?(Math.random()<0.5?'affirmation':'roast'):(tone||'affirmation');
+  const bank=t==='roast'?R:A; return pick(bank[b]);
+}
+
+// ===================== CLOUD DATA (Supabase) =====================
+let MATERIALS = [];
+let QUESTIONS_BY_MAT = {}; // { material_id: [ {q, options[], answer, explanation} ] }
+let PROGRESS = {};         // { material_id: { read, correct_count, percent } }
+let TRYOUTS = [];
+
+async function loadMaterials(){
+  const { data, error } = await supabase.from('materials').select('*').order('id');
+  if(error){ console.warn('materials', error); MATERIALS=[]; return }
+  MATERIALS = data||[];
+}
+async function loadQuestions(){
+  const { data, error } = await supabase.from('questions').select('*').order('id');
+  if(error){ console.warn('questions', error); QUESTIONS_BY_MAT={}; return }
+  QUESTIONS_BY_MAT={};
+  (data||[]).forEach(q=>{
+    if(!QUESTIONS_BY_MAT[q.material_id]) QUESTIONS_BY_MAT[q.material_id]=[];
+    QUESTIONS_BY_MAT[q.material_id].push({ q:q.q, options:q.options, answer:q.answer, explanation:q.explanation })
+  })
+}
+async function loadProgress(){
+  const user = await getUser(); if(!user){ PROGRESS={}; return }
+  const { data, error } = await supabase.from('progress').select('*').eq('user_id', user.id);
+  if(error){ console.warn('progress', error); PROGRESS={}; return }
+  PROGRESS={}; (data||[]).forEach(r=> PROGRESS[r.material_id]=r)
+}
+async function loadTryouts(){
+  const user = await getUser(); if(!user){ TRYOUTS=[]; return }
+  const { data, error } = await supabase.from('tryouts').select('*').eq('user_id', user.id).order('ts', {ascending:false});
+  if(error){ console.warn('tryouts', error); TRYOUTS=[]; return }
+  TRYOUTS = data||[]
+}
+async function loadAllFromCloud(){ await Promise.all([loadMaterials(), loadQuestions(), loadProgress(), loadTryouts()]) }
+
+function getMaterials(){ return (MATERIALS && MATERIALS.length) ? MATERIALS : (DATA_LOCAL.materials || []) }
+function getQuestionsByMat(id){
+  if (QUESTIONS_BY_MAT[id] && QUESTIONS_BY_MAT[id].length) return QUESTIONS_BY_MAT[id];
+  const local = (DATA_LOCAL.materials||[]).find(m=>m.id===id);
+  return local ? (local.questions||[]) : [];
+}
+
+// ===== CLOUD WRITE =====
+function calcPercentForMaterial(material_id){
+  const total = getQuestionsByMat(material_id).length;
+  const st = PROGRESS[material_id] || { read:false, correct_count:0 };
+  const read = st.read?1:0; const correct = st.correct_count||0;
+  if(total<=0) return read?100:0;
+  return Math.round(((read+correct)/(1+total))*100)
+}
+async function markMaterialReadCloud(material_id){
+  const user=await getUser(); if(!user) return;
+  const base = PROGRESS[material_id] || { read:false, correct_count:0, percent:0 };
+  base.read = true; base.percent = calcPercentForMaterial(material_id);
+  const row = { user_id:user.id, material_id, ...base, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('progress').upsert(row);
+  if(error) console.warn('upsert progress', error);
+  PROGRESS[material_id]=row
+}
+async function addCorrectCloud(material_id){
+  const user=await getUser(); if(!user) return;
+  const base = PROGRESS[material_id] || { read:false, correct_count:0, percent:0 };
+  base.correct_count += 1; base.percent = calcPercentForMaterial(material_id);
+  const row = { user_id:user.id, material_id, ...base, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from('progress').upsert(row);
+  if(error) console.warn('upsert progress', error);
+  PROGRESS[material_id]=row
+}
+async function saveTryoutCloud(total, correct){
+  const user=await getUser(); if(!user) return;
+  const percent = total>0 ? Math.round((correct/total)*100) : 0;
+  const payload = { user_id:user.id, total, correct, percent, ts: new Date().toISOString() };
+  const { error } = await supabase.from('tryouts').insert(payload);
+  if(error) console.warn('insert tryouts', error);
+  await loadTryouts()
+}
+
+// ===================== AUTH (Supabase) =====================
+async function signUp(){
+  const email=(document.getElementById('sb_email')?.value||'').trim();
+  const password=document.getElementById('sb_pass')?.value||'';
+  if(!email||!password) return alert('Isi email & password');
+  const { error } = await supabase.auth.signUp({ email, password });
+  if(error) alert(error.message); else alert('Signup OK. Jika verifikasi aktif, cek email.');
+}
+async function signIn(){
+  const email=(document.getElementById('sb_email')?.value||'').trim();
+  const password=document.getElementById('sb_pass')?.value||'';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error) return alert(error.message);
+  await ensureProfile();
+  await refreshSupaUser();
+  await loadAllFromCloud();
+  render();
+}
+async function signOut(){ await supabase.auth.signOut(); await refreshSupaUser(); render() }
+async function ensureProfile(){
+  const user=await getUser(); if(!user) return;
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  if(error && error.code!=='PGRST116'){ console.warn(error); return }
+  if(!data){
+    const payload={ id:user.id, username:user.email, display_name:'', group_name:'', tone:'affirmation', theme:'dark', emoji:'lite' };
+    const { error:e2 } = await supabase.from('profiles').insert(payload);
+    if(e2) console.warn(e2)
+  }
+}
+
+// ===================== HELPERS =====================
+function ensureMatStat(id){ if(!state.stats[id]) state.stats[id]={done:[],correct:[],attempts:0,corrects:0} }
+function pct(n,d){ if(d<=0) return 0; return Math.round((n/d)*100) }
+function bar(p){ return `<div class="bar"><i style="width:${p}%"></i></div>` }
+function fmtDate(ts){ const d=new Date(ts); return d.toLocaleString() }
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild }
+function shuffle(a){ const arr=a.slice(); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } return arr }
+
+function totalQuestions(){ const mats=getMaterials(); return mats.reduce((s,m)=> s + getQuestionsByMat(m.id).length, 0) }
+function overallProgress(){
+  const mats=getMaterials();
+  const parts=mats.map(m=>{
+    const st=PROGRESS[m.id]||{};
+    const read=st.read?1:(state.read[m.id]?1:0);
+    const correct=(st.correct_count ?? (state.stats[m.id]?.correct||[]).length);
+    const total=getQuestionsByMat(m.id).length;
+    return ((read+correct)/(1+total))||0
+  });
+  if(!parts.length) return 0; return Math.round((parts.reduce((a,b)=>a+b,0)/parts.length)*100)
+}
+
+function exportState(){
+  const a=document.createElement('a');
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  a.href=URL.createObjectURL(blob); a.download='cbt_state.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+}
+function importState(ev){
+  const f=ev.target.files?.[0]; if(!f) return;
+  const r=new FileReader(); r.onload=e=>{ try{ state=JSON.parse(e.target.result); saveState(); render(); }catch(err){ alert('File tidak valid') } };
+  r.readAsText(f);
+}
+
+// ===================== UI: AUTH ROW =====================
+function renderAuthRow(){
+  const row=document.getElementById('authRow'); if(!row) return;
+  if(SUPA_USER){
+    row.innerHTML = `
+      <span class="pill">Login: <b>${SUPA_USER.email}</b></span>
+      <label class="pill">Grup:
+        <input type="text" placeholder="mis. Kelas A" value="${state.settings.group || ''}"
+               oninput="state.settings.group=this.value; saveState()"/>
+      </label>
+      <button class="btn warn" onclick="signOut()">Logout</button>
+      <span class="tag">Supabase</span>`;
+  } else {
+    row.innerHTML = `
+      <input id="sb_email" type="text" placeholder="email (Supabase)" class="pill"/>
+      <input id="sb_pass" type="password" placeholder="password" class="pill"/>
+      <button class="btn" onclick="signUp()">Sign up</button>
+      <button class="btn acc" onclick="signIn()">Login</button>
+      <span class="tag">Cloud</span>`;
+  }
+}
+
+// ===================== RENDER =====================
+function render(){
+  applyTheme(state.settings?.theme || 'dark');
+  renderAuthRow();
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  // Jika menginginkan akses personal, minta login
+  if(!SUPA_USER){
+    app.appendChild(el(`
+      <section class="card">
+        <div class="title">Masuk dulu ya</div>
+        <div class="hr"></div>
+        <p class="muted">Gunakan kolom <b>email</b> dan <b>password</b> di bagian atas (header) untuk Login/Sign‑up Supabase. Setelah login, progress akan tersimpan ke cloud.</p>
+      </section>`));
+    return;
+  }
+
+  // --- setelah login, tampilkan dashboard & materi ---
+  const overall = overallProgress();
+  app.appendChild(el(`
+    <section class="grid grid-3">
+      <div class="card">
+        <div class="sp"><div class="title">Ringkasan Progress</div><span class="tag">Personal</span></div>
+        <div class="hr"></div>
+        <div class="row" style="gap:12px">
+          <div class="pill">Materi: <b>${getMaterials().length}</b></div>
+          <div class="pill">Soal total: <b>${totalQuestions()}</b></div>
+          <div class="pill">Progress rata2: <b>${overall}%</b></div>
+        </div>
+        <div style="margin-top:10px">${bar(overall)}</div>
+        <div class="q" style="margin-top:10px">${motivation(overall, state.settings.name, state.settings.tone)} ${emojiDecor(overall, state.settings.emoji)}</div>
+        <div class="muted" style="margin-top:8px">Progress dihitung dari (baca materi + latihan benar) / total. Tersimpan di akunmu.</div>
+      </div>
+
+      <div class="card">
+        <div class="title">Tryout Terakhir</div>
+        <div class="hr"></div>
+        ${TRYOUTS?.length ? `<div class="row"><div class="pill">Skor: <b>${TRYOUTS[0].correct}/${TRYOUTS[0].total}</b> (${TRYOUTS[0].percent}%)</div><div class="pill">${fmtDate(TRYOUTS[0].ts)}</div></div>` : '<div class="muted">Belum ada. Coba tryout gabungan.</div>'}
+        <div class="row" style="margin-top:8px">
+          <button class="btn acc" onclick="openTryout()">Mulai Tryout Gabungan</button>
+          <button class="btn ghost" onclick="viewHistory()">Riwayat</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Status Data</div>
+        <div class="hr"></div>
+        ${getMaterials().length ? '<div class="muted">Materi diambil dari Supabase.</div>' : '<div class="muted">Belum ada materi di database. Admin: isi tabel <span class="kbd">materials</span> & <span class="kbd">questions</span> atau gunakan data lokal di Panduan.</div>'}
+      </div>
+    </section>`));
+
+  const mats = el('<section class="grid grid-3" style="margin-top:16px"></section>');
+  getMaterials().forEach(m => mats.appendChild(materialCard(m)));
+  app.appendChild(mats);
+}
+
+// ===================== VIEWS =====================
+function openReading(id){
+  const mat=getMaterials().find(m=>m.id===id);
+  const app=document.getElementById('app'); app.innerHTML='';
+  app.appendChild(el(`
+    <article class="card">
+      <div class="sp"><div class="title">${mat.title} — Materi</div><button class="btn" onclick="render()">\u2190 Kembali</button></div>
+      <div class="hr"></div>
+      <div class="muted">Tandai dibaca agar progress naik.</div>
+      <div class="q" style="margin-top:10px">${mat.reading||'-'}</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn acc" onclick="markRead('${id}')">Tandai Sudah Dibaca</button>
+        <button class="btn" onclick="openPractice('${id}')">Latihan Soal</button>
+      </div>
+    </article>`))
+}
+async function markRead(id){ state.read[id]=true; saveState(); await markMaterialReadCloud(id); render() }
+
+function openPractice(id){
+  const QUESTIONS=getQuestionsByMat(id);
+  const mat=getMaterials().find(m=>m.id===id);
+  ensureMatStat(id); const st=state.stats[id]; let index=0; show();
+  function show(){
+    const q=QUESTIONS[index]; const app=document.getElementById('app');
+    app.innerHTML=''; app.appendChild(el(`
+      <article class="card">
+        <div class="sp"><div class="title">${mat.title} — Latihan Soal</div><button class="btn" onclick="render()">\u2190 Selesai</button></div>
+        <div class="hr"></div>
+        <div class="row"><span class="pill">Soal ${index+1}/${QUESTIONS.length}</span><span class="pill">Benar (lokal): <b>${(st.correct||[]).length}</b></span></div>
+        <div class="q" style="margin-top:10px">${q.q}</div>
+        <div id="opts"></div>
+        <div id="explain" class="muted" style="margin-top:8px"></div>
+        <div class="sp" style="margin-top:12px">
+          <button class="btn" onclick="prev()">\u2190 Sebelumnya</button>
+          <div class="row">
+            <button class="btn warn" onclick="resetProgress('${id}')" title="Hapus progress lokal materi ini">Reset</button>
+            <button class="btn acc" onclick="next()">Berikutnya \u2192</button>
+          </div>
+        </div>
+      </article>`));
+    const opts=document.getElementById('opts');
+    q.options.forEach((opt,i)=>{ const o=el(`<div class="opt">${String.fromCharCode(65+i)}. ${opt}</div>`); o.onclick=()=>select(i); opts.appendChild(o) });
+    function select(i){
+      const ok=i===q.answer; st.attempts++; if(ok){ st.corrects++; if(!st.correct.includes(index)) st.correct.push(index); addCorrectCloud(id) }
+      if(!st.done.includes(index)) st.done.push(index); saveState();
+      [...opts.children].forEach((node,j)=>{ node.classList.remove('selected'); if(j===i) node.classList.add('selected'); if(j===q.answer) node.classList.add('correct'); else if(j===i) node.classList.add('wrong'); });
+      document.getElementById('explain').innerHTML = `<b>${ok?'Benar!':'Salah.'}</b> ${q.explanation||''}`;
+    }
+  }
+  function prev(){ index=Math.max(0,index-1); show() }
+  function next(){ index=Math.min(QUESTIONS.length-1,index+1); show() }
+}
+function resetProgress(id){ if(!confirm('Hapus semua progress LOKAL materi ini?')) return; state.stats[id]={done:[],correct:[],attempts:0,corrects:0}; saveState(); openPractice(id) }
+
+function openTryout(){
+  const total=totalQuestions(); const app=document.getElementById('app'); app.innerHTML='';
+  app.appendChild(el(`
+    <article class="card">
+      <div class="sp"><div class="title">Tryout Gabungan</div><button class="btn" onclick="render()">\u2190 Kembali</button></div>
+      <div class="hr"></div>
+      <div class="row" style="gap:12px">
+        <label class="pill">Jumlah soal: <input type="number" id="n" min="1" max="${total}" value="${Math.min(10,total)}" style="margin-left:8px;width:90px"></label>
+        <label class="pill">Sumber: <select id="src" style="margin-left:8px">
+          <option value="all">Semua materi</option>
+          ${getMaterials().map(m=>`<option value="${m.id}">${m.title}</option>`).join('')}
+        </select></label>
+        <button class="btn acc" onclick="start()">Mulai</button>
+      </div>
+    </article>`));
+  window.start=function(){
+    const n=Math.max(1,Math.min(parseInt(document.getElementById('n').value||'1'),total));
+    const src=document.getElementById('src').value;
+    const pool=(src==='all' ? getMaterials().flatMap(m=> getQuestionsByMat(m.id).map(q=>({q,mat:m.id}))) : getQuestionsByMat(src).map(q=>({q,mat:src})));
+    const questions=shuffle(pool).slice(0,n);
+    runTryout(questions)
+  }
+}
+function runTryout(questions){
+  let idx=0, correct=0; const answers=[]; show();
+  function show(){
+    const app=document.getElementById('app'); app.innerHTML=''; const item=questions[idx];
+    app.appendChild(el(`
+      <article class="card">
+        <div class="sp"><div class="title">Tryout — Soal ${idx+1}/${questions.length}</div><button class="btn" onclick="cancelTryout()">Batalkan</button></div>
+        <div class="hr"></div>
+        <div class="q">${item.q.q}</div>
+        <div id="opts"></div>
+        <div class="sp" style="margin-top:12px"><span class="muted">Jawaban disimpan saat pilih opsi.</span><button class="btn acc" onclick="next()">Berikutnya \u2192</button></div>
+      </article>`));
+    const opts=document.getElementById('opts'); item.q.options.forEach((opt,i)=>{ const o=el(`<div class="opt">${String.fromCharCode(65+i)}. ${opt}</div>`); o.onclick=()=>choose(i); opts.appendChild(o) })
+  }
+  function choose(i){ const item=questions[idx]; answers[idx]=i; if(i===item.q.answer) correct++; next() }
+  function next(){ if(idx<questions.length-1){ idx++; show() } else { finish() } }
+  async function finish(){
+    const total=questions.length; const percent=pct(correct,total);
+    state.tryouts.push({ts:Date.now(),total,correct,percent}); saveState();
+    await saveTryoutCloud(total, correct);
+    const app=document.getElementById('app'); app.innerHTML='';
+    app.appendChild(el(`
+      <article class="card">
+        <div class="sp"><div class="title">Hasil Tryout</div><button class="btn" onclick="render()">Selesai</button></div>
+        <div class="hr"></div>
+        <div class="row"><div class="pill">Skor: <b>${correct}/${total}</b></div><div class="pill">Persentase: <b>${percent}%</b></div><div class="pill">Tanggal: ${fmtDate(Date.now())}</div></div>
+        <div style="margin-top:10px">${bar(percent)}</div>
+        <details style="margin-top:12px"><summary>Lihat kunci & pembahasan</summary><div class="hr"></div>
+          ${questions.map((it,i)=>`<div class="q"><b>${i+1}.</b> ${it.q.q}<div class="muted" style="margin-top:6px">Jawaban Anda: <b>${it.q.options[answers[i]]??'-'}</b> • Kunci: <b>${it.q.options[it.q.answer]}</b><br>${it.q.explanation??''}</div></div>`).join('')}
+        </details>
+      </article>`))
+  }
+  window.cancelTryout=render;
+}
+function viewHistory(){
+  const app=document.getElementById('app'); app.innerHTML='';
+  app.appendChild(el(`
+    <article class="card">
+      <div class="sp"><div class="title">Riwayat Tryout (lokal + cloud)</div><button class="btn" onclick="render()">\u2190 Kembali</button></div>
+      <div class="hr"></div>
+      ${(TRYOUTS?.length? TRYOUTS.map((t,i)=>`<div class='row' style='margin:6px 0'><span class='pill'>C${i+1}</span><span class='pill'>${fmtDate(t.ts)}</span><span class='pill'>${t.correct}/${t.total} • ${t.percent}%</span></div>`).join('') : '<div class="muted">Belum ada di cloud.</div>')}
+      ${state.tryouts?.length? `<div class='hr'></div>`+state.tryouts.map((t,i)=>`<div class='row' style='margin:6px 0'><span class='pill'>L${i+1}</span><span class='pill'>${fmtDate(t.ts)}</span><span class='pill'>${t.correct}/${t.total} • ${t.percent}%</span></div>`).join('') : ''}
+    </article>`))
+}
+
+
+
+// ===== Boot =====
+(async ()=>{
+  applyTheme(state.settings?.theme || 'dark');
+  await refreshSupaUser();
+  if(SUPA_USER){
+    await loadAllFromCloud();
+  } else {
+    // materials & questions publik bisa dibaca jika policy select true
+    await Promise.allSettled([loadMaterials(), loadQuestions()]);
+  }
+  render();
+})();
+
+supabase.auth.onAuthStateChange(async (_evt, session) => {
+  SUPA_USER = session?.user || null;
+  if(SUPA_USER){ await loadAllFromCloud(); } else { await Promise.allSettled([loadMaterials(), loadQuestions()]); }
+  render();
+});
+</script>
+</body>
+</html>
