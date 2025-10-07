@@ -234,7 +234,6 @@ async function saveTryoutCloud(total, correct){
 }
 
 // ===================== AUTH (Supabase) =====================
-<script>
 async function signUp(){
   const email=(document.getElementById('sb_email')?.value||'').trim();
   const password=document.getElementById('sb_pass')?.value||'';
@@ -261,7 +260,6 @@ async function signIn(){
 supabase.auth.onAuthStateChange((evt, session) => {
   console.log('[AUTH STATE]', evt, session?.user?.email);
 });
-</script>
 async function signOut(){ await supabase.auth.signOut(); await refreshSupaUser(); render() }
 async function ensureProfile(){
   const user=await getUser(); if(!user) return;
