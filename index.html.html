@@ -43,17 +43,18 @@
 
   <!-- Supabase JS -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <script>
-    // ==== KONFIGURASI SUPABASE (GANTI DENGAN MILIKMU) ====
-    // Dapatkan di: Supabase → Settings → API
-    const PROJECT_URL = "https://YOUR-PROJECT-ref.https://cesonqwlmavfyfeqwjcc.supabase.co"; // ← ganti
-    const PUBLIC_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zb2NrYWllcGRoeGN1emdxcWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3Nzc2MDIsImV4cCI6MjA3NTM1MzYwMn0.Woz90Yi9VGOygSsWH8pUGH9GOciOBI9R8bqBB4uKh-s";                  // ← ganti
+<script>
+// ==== KONFIGURASI SUPABASE (GANTI DENGAN MILIKMU) ====
+// Supabase → Settings → API
+const PROJECT_URL = "https://msockaiepdhxcuzgqqlu.supabase.co"; // ← contoh benar
+const PUBLIC_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zb2NrYWllcGRoeGN1emdxcWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3Nzc2MDIsImV4cCI6MjA3NTM1MzYwMn0.Woz90Yi9VGOygSsWH8pUGH9GOciOBI9R8bqBB4uKh-s";             // ← ganti
 
-    const supabase = window.supabase.createClient(PROJECT_URL, PUBLIC_ANON);
-    let SUPA_USER = null;
-    async function getUser(){ const { data:{ user } } = await supabase.auth.getUser(); return user }
-    async function refreshSupaUser(){ SUPA_USER = await getUser(); }
-  </script>
+const supabase = window.supabase.createClient(PROJECT_URL, PUBLIC_ANON);
+let SUPA_USER = null;
+async function getUser(){ const { data:{ user } } = await supabase.auth.getUser(); return user }
+async function refreshSupaUser(){ SUPA_USER = await getUser(); }
+</script>
+
 </head>
 <body>
   <header class="wrap">
@@ -233,23 +234,34 @@ async function saveTryoutCloud(total, correct){
 }
 
 // ===================== AUTH (Supabase) =====================
+<script>
 async function signUp(){
   const email=(document.getElementById('sb_email')?.value||'').trim();
   const password=document.getElementById('sb_pass')?.value||'';
   if(!email||!password) return alert('Isi email & password');
-  const { error } = await supabase.auth.signUp({ email, password });
-  if(error) alert(error.message); else alert('Signup OK. Jika verifikasi aktif, cek email.');
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  console.log('[SIGNUP]', { data, error });
+  if(error) return alert('Sign up gagal: ' + error.message);
+  alert('Sign up OK. Jika verifikasi email aktif, cek inbox dulu ya.');
 }
+
 async function signIn(){
   const email=(document.getElementById('sb_email')?.value||'').trim();
   const password=document.getElementById('sb_pass')?.value||'';
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if(error) return alert(error.message);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  console.log('[SIGNIN]', { data, error });
+  if(error) return alert('Login gagal: ' + error.message);
   await ensureProfile();
   await refreshSupaUser();
   await loadAllFromCloud();
   render();
 }
+
+// biar kelihatan perubahan sesi
+supabase.auth.onAuthStateChange((evt, session) => {
+  console.log('[AUTH STATE]', evt, session?.user?.email);
+});
+</script>
 async function signOut(){ await supabase.auth.signOut(); await refreshSupaUser(); render() }
 async function ensureProfile(){
   const user=await getUser(); if(!user) return;
